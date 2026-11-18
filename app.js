@@ -28,14 +28,32 @@ function showReleases(){const root=$('releases');root.replaceChildren();const q=
 }
 async function loadReleases(){try{releases=[];for(let page=1;page<=5;page++){const part=await request(`/releases?page=${page}`);releases.push(...part);if(part.length<100)break;}showReleases();notice(`Loaded ${releases.length} releases`)}catch(e){notice(e.message,true)}}
 async function loadUploads(){if(!IS_ADMIN_PORTAL)return;try{const items=await request('/uploads'),root=$('uploads');root.replaceChildren();for(const u of items){const div=document.createElement('div');div.className='item';const p=document.createElement('p');p.textContent=`${u.tag} — ${u.filename} — ${u.status}`;div.append(p);if(u.status!=='published'){const b=document.createElement('button');b.textContent='Publish to GitHub';b.onclick=async()=>{b.disabled=true;notice('Publishing, please wait...');try{await request(`/publish/${u.id}`,{method:'POST'});notice('Published');await loadUploads();await loadReleases()}catch(e){notice(e.message,true);b.disabled=false}};div.append(b)}root.append(div)}}catch(e){notice(e.message,true)}}
-$('loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});if(IS_ADMIN_PORTAL&&d.role!=='admin')throw Error('This account is not an administrator');token=d.token;$('password').value='';view(true);await loadReleases();if(IS_ADMIN_PORTAL)await loadUploads()}catch(e){token=null;view(false);notice(e.message,true)}};
+$('loginForm').onsubmit=async e=>{e.preventDefault();try{const d=await request('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('email').value,password:$('password').value})});if(IS_ADMIN_PORTAL&&d.role!=='admin')throw Error('This account is not an administrator');token=d.token;$('password').value='';view(true);await loadReleases();if(IS_ADMIN_PORTAL){await loadUploads();await loadUsers()}}catch(e){token=null;view(false);notice(e.message,true)}};
+async function loadUsers(){
+ try{
+  const users=await request('/users');
+  const root=$('employees');root.replaceChildren();
+  if(!users.length){root.textContent='No employee accounts found.';return;}
+  const table=document.createElement('table');table.className='employee-table';
+  const thead=document.createElement('thead');const header=document.createElement('tr');
+  for(const label of ['Email','Role','Status','Created']){const th=document.createElement('th');th.textContent=label;header.append(th)}
+  thead.append(header);table.append(thead);
+  const tbody=document.createElement('tbody');
+  for(const u of users){const tr=document.createElement('tr');
+   for(const value of [u.email,u.role,u.active?'Active':'Inactive',u.created_at||'—']){const td=document.createElement('td');td.textContent=String(value);tr.append(td)}
+   tbody.append(tr);
+  }
+  table.append(tbody);root.append(table);
+ }catch(e){notice('Employee list: '+e.message,true)}
+}
 $('logout').onclick=async()=>{try{await request('/logout',{method:'POST'})}catch{}token=null;releases=[];view(false);$('releases').replaceChildren();notice('Signed out')};
 $('reloadReleases').onclick=loadReleases;
 if($('search'))$('search').oninput=showReleases;
 if($('kindFilter'))$('kindFilter').onchange=showReleases;
 if(IS_ADMIN_PORTAL){
  $('reloadUploads').onclick=loadUploads;
- $('userForm').onsubmit=async e=>{e.preventDefault();try{await request('/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('newEmail').value,password:$('newPassword').value,role:$('newRole').value})});$('userForm').reset();notice('User created')}catch(e){notice(e.message,true)}};
+ $('reloadUsers').onclick=loadUsers;
+ $('userForm').onsubmit=async e=>{e.preventDefault();try{await request('/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('newEmail').value,password:$('newPassword').value,role:$('newRole').value})});$('userForm').reset();notice('User created');await loadUsers()}catch(e){notice(e.message,true)}};
  $('uploadForm').onsubmit=async e=>{e.preventDefault();const f=$('file').files[0];if(!f||f.size>100_000_000||!f.size)return notice('File must be 1–100 MB',true);
  const b=$('uploadForm').querySelector('button');b.disabled=true;notice('Uploading to Cloudflare R2...');
  try{const d=await request('/upload',{method:'POST',headers:{'X-Filename':f.name,'X-Series':$('series').value,'X-Model':$('model').value,'X-Kind':$('kind').value,'X-Version':$('version').value,'X-Comments':$('comments').value},body:f});notice(`Staged ${d.tag}. Click Publish to GitHub.`);$('uploadForm').reset();await loadUploads()}catch(err){notice(err.message,true)}finally{b.disabled=false}};
