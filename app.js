@@ -54,6 +54,17 @@ async function loadUsers(){
      catch(e){notice(e.message,true);button.disabled=false;}
     };
     actionCell.append(button);
+    const resetButton=document.createElement('button');resetButton.textContent='Reset password';resetButton.type='button';
+    resetButton.onclick=async()=>{
+      const newPassword=window.prompt(`Enter a new temporary password (12+ characters) for ${u.email}. Do not reuse an existing password.`);
+      if(newPassword===null)return;
+      if(newPassword.length<12)return notice('Password must be at least 12 characters',true);
+      if(!window.confirm(`Reset password for ${u.email}? All their active sessions will be revoked.`))return;
+      resetButton.disabled=true;
+      try{await request(`/users/${encodeURIComponent(u.id)}/reset-password`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({newPassword})});notice(`Password reset for ${u.email}. Share it securely; employee must sign in again.`)}
+      catch(e){notice(e.message,true)}finally{resetButton.disabled=false;}
+    };
+    actionCell.append(resetButton);
    }else{actionCell.textContent='Protected admin';}
    tr.append(actionCell);
    tbody.append(tr);
@@ -66,6 +77,13 @@ $('reloadReleases').onclick=loadReleases;
 if($('search'))$('search').oninput=showReleases;
 if($('kindFilter'))$('kindFilter').onchange=showReleases;
 if(IS_ADMIN_PORTAL){
+ $('changePasswordForm').onsubmit=async e=>{
+  e.preventDefault();const currentPassword=$('currentPassword').value,newPassword=$('myNewPassword').value;
+  if(newPassword!==$('myConfirmPassword').value)return notice('New passwords do not match',true);
+  try{await request('/me/password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentPassword,newPassword})});
+   $('changePasswordForm').reset();token=null;releases=[];view(false);notice('Password changed. Please sign in again.');
+  }catch(err){notice(err.message,true)}
+ };
  $('reloadUploads').onclick=loadUploads;
  $('reloadUsers').onclick=loadUsers;
  $('userForm').onsubmit=async e=>{e.preventDefault();try{await request('/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('newEmail').value,password:$('newPassword').value,role:$('newRole').value})});$('userForm').reset();notice('User created');await loadUsers()}catch(e){notice(e.message,true)}};
