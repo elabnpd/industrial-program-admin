@@ -36,11 +36,26 @@ async function loadUsers(){
   if(!users.length){root.textContent='No employee accounts found.';return;}
   const table=document.createElement('table');table.className='employee-table';
   const thead=document.createElement('thead');const header=document.createElement('tr');
-  for(const label of ['Email','Role','Status','Created']){const th=document.createElement('th');th.textContent=label;header.append(th)}
+  for(const label of ['Email','Role','Status','Created','Action']){const th=document.createElement('th');th.textContent=label;header.append(th)}
   thead.append(header);table.append(thead);
   const tbody=document.createElement('tbody');
   for(const u of users){const tr=document.createElement('tr');
    for(const value of [u.email,u.role,u.active?'Active':'Inactive',u.created_at||'—']){const td=document.createElement('td');td.textContent=String(value);tr.append(td)}
+   const actionCell=document.createElement('td');
+   if(u.role==='viewer'){
+    const button=document.createElement('button');
+    button.textContent=u.active?'Deactivate':'Activate';
+    button.className=u.active?'danger-button':'activate-button';
+    button.onclick=async()=>{
+     const action=u.active?'deactivate':'activate';
+     if(!window.confirm(`${action==='deactivate'?'Deactivate':'Activate'} ${u.email}? ${action==='deactivate'?'Their active sessions will be revoked.':''}`))return;
+     button.disabled=true;
+     try{await request(`/users/${encodeURIComponent(u.id)}/${action}`,{method:'PATCH'});notice(`${u.email} ${action}d successfully`);await loadUsers();}
+     catch(e){notice(e.message,true);button.disabled=false;}
+    };
+    actionCell.append(button);
+   }else{actionCell.textContent='Protected admin';}
+   tr.append(actionCell);
    tbody.append(tr);
   }
   table.append(tbody);root.append(table);
