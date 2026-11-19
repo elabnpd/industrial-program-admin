@@ -89,6 +89,6 @@ if(IS_ADMIN_PORTAL){
  $('userForm').onsubmit=async e=>{e.preventDefault();try{await request('/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:$('newEmail').value,password:$('newPassword').value,role:$('newRole').value})});$('userForm').reset();notice('User created');await loadUsers()}catch(e){notice(e.message,true)}};
  $('uploadForm').onsubmit=async e=>{e.preventDefault();const f=$('file').files[0];if(!f||f.size>100_000_000||!f.size)return notice('File must be 1–100 MB',true);
  const b=$('uploadForm').querySelector('button');b.disabled=true;notice('Uploading to Cloudflare R2...');
- try{const d=await request('/upload',{method:'POST',headers:{'X-Filename':f.name,'X-Series':$('series').value,'X-Model':$('model').value,'X-Kind':$('kind').value,'X-Version':$('version').value,'X-Comments':$('comments').value},body:f});notice(`Staged ${d.tag}. Click Publish to GitHub.`);$('uploadForm').reset();await loadUploads()}catch(err){notice(err.message,true)}finally{b.disabled=false}};
+ try{const d=await request('/upload',{method:'POST',headers:{'X-Filename':f.name,'X-Series':$('series').value.trim(),'X-Model':$('model').value.trim(),'X-Kind':$('kind').value.trim(),'X-Version':$('version').value,'X-Comments':$('comments').value},body:f});notice(`Staged ${d.tag}. Click Publish to GitHub.`);$('uploadForm').reset();await loadUploads()}catch(err){notice(err.message,true)}finally{b.disabled=false}};
 }
 view(false);
